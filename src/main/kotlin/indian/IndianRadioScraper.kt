@@ -4,6 +4,7 @@ import MAIN_DIRECTORY
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jsoup.nodes.Document
+import org.jsoup.select.Elements
 import ssl.SSLHelper
 
 private class IndianRadioScraper(
@@ -19,6 +20,17 @@ private class IndianRadioScraper(
 
             // do stuff here
 
+            val content: Elements = doc.getElementsByClass("container")[2].getElementsByClass("rowM")
+
+            content.forEach {
+                val items = it.select("a")
+                items.forEach { element -> println("Item: $element") }
+            }
+
+            //println("$content \n\n")
+            //content.forEach { println(it) }
+
+            // end here
             println(doc.location())
             ++pageNumber
         }
