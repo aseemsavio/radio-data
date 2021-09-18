@@ -1,3 +1,7 @@
-fun main() {
-    println("Hello World")
+import indian.scrapeIndianRadio
+
+suspend fun main() {
+    scrapeIndianRadio()
 }
+
+const val MAIN_DIRECTORY = "Generated-JSON"
