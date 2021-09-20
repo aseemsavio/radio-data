@@ -41,9 +41,9 @@ data class StationBuilder(
     var bitRate: String? = null,
     var frequency: String? = null,
     var location: List<String> = listOf(),
-    var rating: Rating? = null
+    var rating: RatingBuilder? = null
 ) {
-    fun build(): Station {
+    /*fun build(): Station {
         return Station(
             name,
             tagLine,
@@ -58,7 +58,12 @@ data class StationBuilder(
             location,
             rating
         )
-    }
+    }*/
 }
+
+data class RatingBuilder(
+    var ratingOnFive: Float?,
+    var numberOfVotes: Int?
+)
 
 fun Station() = StationBuilder()

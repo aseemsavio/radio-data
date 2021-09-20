@@ -52,8 +52,16 @@ private class IndianRadioScraper(
                         ) else ""
                     }
                     station.streamingUrl = audioUrl ?: ""
-                    println("Data: $station")
-                    // enter into each product's page
+
+                    val ratingElement = productContent.select("div[itemProp = aggregateRating]")
+                    station.rating = RatingBuilder(
+                        ratingOnFive = ratingElement.select("meta[itemProp = ratingValue]").first()?.attr("content")
+                            ?.toFloat(),
+                        numberOfVotes = ratingElement.select("meta[itemProp = ratingCount]").first()?.attr("content")
+                            ?.toInt()
+                    )
+
+                    println("Data: ${station.pp()}")
 
                 }
                 /*}.awaitAll()*/
@@ -96,3 +104,10 @@ private class IndianRadioScraper(
 }
 
 suspend fun scrapeIndianRadio() = IndianRadioScraper(MAIN_DIRECTORY, "https://onlineradiofm.in").scrape()
+
+fun Any.pp(indentSize: Int = 2) = " ".repeat(indentSize).let { indent ->
+    toString()
+        .replace(", ", ",\n$indent")
+        .replace("(", "(\n$indent")
+        .dropLast(1) + "\n)"
+}
