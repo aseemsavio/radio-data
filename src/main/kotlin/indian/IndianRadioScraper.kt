@@ -61,6 +61,27 @@ private class IndianRadioScraper(
                             ?.toInt()
                     )
 
+                    val radioInfo = productContent.select("div.inforadio_new")
+
+                    val languageList = mutableListOf<String>()
+
+                    radioInfo.forEach { info ->
+                        val languages = info.getElementsByTag("p").first()?.getElementsContainingText("Language:")
+                        languages?.forEach { lang ->
+                            var language = lang.getElementsByTag("a")
+                            language.forEach { l ->
+                                var langCode = l.attr("href")
+                                val lastIndexOfSlash = langCode?.lastIndexOf("/")
+                                if (lastIndexOfSlash != null) {
+                                    langCode =
+                                        if (langCode.isNotEmpty()) langCode.substring(lastIndexOfSlash + 1) else ""
+                                    languageList += langCode
+                                }
+                            }
+                        }
+                    }
+                    station.languages = languageList
+
                     println("Data: ${station.pp()}")
 
                 }
