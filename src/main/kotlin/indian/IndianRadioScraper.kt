@@ -4,7 +4,6 @@ import MAIN_DIRECTORY
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import ssl.SSLHelper
 
@@ -67,8 +66,13 @@ private class IndianRadioScraper(
                     station.genre = extractList(radioInfo, "Genre:", 1)
                     station.description = radioInfo.first()?.getElementsByTag("p")?.get(2)?.text() ?: ""
 
-                    println("Data: ${station.pp()}")
+                    val (firstAirDate, bitRate, frequency, location) = getExtraInformation(productContent)
+                    station.firstAiredYear = firstAirDate
+                    station.bitRate = bitRate
+                    station.frequency = frequency
+                    station.location = location!!.split(",").map { word -> word.trim() }
 
+                    println("Data: ${station.pp()}")
                 }
                 /*}.awaitAll()*/
             }
@@ -79,6 +83,39 @@ private class IndianRadioScraper(
         }
 
     }
+
+    private fun getExtraInformation(productContent: Elements): Extras {
+
+        val ul = productContent?.select("div.inforadio_new > ul")
+        val li = ul.select("li")
+
+        var firstAirDate: String? = null
+        var bitRate: String? = null
+        var frequency: String? = null
+        var location: String? = null
+
+        for (i in li.indices) {
+            val item = li[i]?.text()
+            if (item?.contains("First air date") == true) {
+                val date = item.split(":")[1].trim()
+                firstAirDate = date.substring(date.length - 4)
+            }
+            if (item?.contains("Bitrate") == true) bitRate = item.split(":")[1].trim()
+            if (item?.contains("Frequency") == true) frequency = item.split(":")[1].trim()
+            if (item?.contains("Country") == true) location = item.split(":")[1].trim()
+        }
+
+        return Extras(
+            firstAirDate, bitRate, frequency, location
+        )
+    }
+
+    data class Extras(
+        val firstAirDate: String?,
+        val bitRate: String?,
+        val frequency: String?,
+        val location: String?
+    )
 
     private fun extractList(
         radioInfo: Elements,
