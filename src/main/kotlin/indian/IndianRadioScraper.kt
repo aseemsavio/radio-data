@@ -1,11 +1,11 @@
 package indian
 
 import MAIN_DIRECTORY
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
 import ssl.SSLHelper
+import java.lang.Exception
 
 private class IndianRadioScraper(
     val mainDirectory: String,
@@ -22,14 +22,15 @@ private class IndianRadioScraper(
 
             val content: Elements = doc.getElementsByClass("container")[2].getElementsByClass("rowM")
 
-            content.forEach {
+            val done: List<List<Unit>> = content.map {
+                //CoroutineScope(Dispatchers.Default).async {
                 val items = it.select("a")
                 items.map { element ->
                     /*CoroutineScope(Dispatchers.Default).async {*/
                     val station = Station()
                     station.name = element.select("p").first()?.text().toString()
                     val productUrl = element.absUrl("href")
-                    println(productUrl)
+                    println("$productUrl page: $pageNumber")
                     val productContent = connect(productUrl).getElementsByClass("content")
                     val titleElement = productContent.first()?.getElementById("radio-pagetitle")
                     station.name = titleElement?.text() ?: ""
@@ -54,9 +55,11 @@ private class IndianRadioScraper(
 
                     val ratingElement = productContent.select("div[itemProp = aggregateRating]")
                     station.rating = RatingBuilder(
-                        ratingOnFive = ratingElement.select("meta[itemProp = ratingValue]").first()?.attr("content")
+                        ratingOnFive = ratingElement.select("meta[itemProp = ratingValue]").first()
+                            ?.attr("content")
                             ?.toFloat(),
-                        numberOfVotes = ratingElement.select("meta[itemProp = ratingCount]").first()?.attr("content")
+                        numberOfVotes = ratingElement.select("meta[itemProp = ratingCount]").first()
+                            ?.attr("content")
                             ?.toInt()
                     )
 
@@ -70,15 +73,20 @@ private class IndianRadioScraper(
                     station.firstAiredYear = firstAirDate
                     station.bitRate = bitRate
                     station.frequency = frequency
-                    station.location = location!!.split(",").map { word -> word.trim() }
+                    try {
+                        station.location = location?.split(",")?.map { word -> word.trim() }!!
+                    } catch (e: Exception) {
+                    }
 
                     println("Data: ${station.pp()}")
-                }
-                /*}.awaitAll()*/
-            }
+                    //}
+                }/*.awaitAll()*/
+                //}
+            }/*.awaitAll()*/
 
+            //println("Done size: ${done.size}")
             // end here
-            println(doc.location())
+            //println("${doc.location()} page: $pageNumber")
             ++pageNumber
         }
 
@@ -94,7 +102,7 @@ private class IndianRadioScraper(
         var frequency: String? = null
         var location: String? = null
 
-        for (i in li.indices) {
+        li.indices.forEach { i ->
             val item = li[i]?.text()
             if (item?.contains("First air date") == true) {
                 val date = item.split(":")[1].trim()
