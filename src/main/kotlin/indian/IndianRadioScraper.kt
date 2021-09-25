@@ -4,6 +4,7 @@ import MAIN_DIRECTORY
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import ssl.SSLHelper
 
@@ -64,6 +65,7 @@ private class IndianRadioScraper(
 
                     station.languages = extractList(radioInfo, "Language:", 0)
                     station.genre = extractList(radioInfo, "Genre:", 1)
+                    station.description = radioInfo.first()?.getElementsByTag("p")?.get(2)?.text() ?: ""
 
                     println("Data: ${station.pp()}")
 
@@ -85,15 +87,13 @@ private class IndianRadioScraper(
     ): List<String> {
         val list = mutableListOf<String>()
         radioInfo.forEach { info ->
-            val paragraphs = info.getElementsByTag("p")[index]?.getElementsContainingText(selector)
-            paragraphs?.forEach { para ->
-                val aTags = para.getElementsByTag("a")
-                aTags.forEach { aTag ->
-                    var code = aTag.attr("href")
-                    val lastIndexOfSlash = code.lastIndexOf("/")
-                    code = if (code.isNotEmpty()) code.substring(lastIndexOfSlash + 1) else ""
-                    list += code
-                }
+            val paragraph = info.getElementsByTag("p")[index]?.getElementsContainingText(selector)?.get(0)
+            val aTags = paragraph?.getElementsByTag("a")
+            aTags?.forEach { aTag ->
+                var code = aTag.attr("href")
+                val lastIndexOfSlash = code.lastIndexOf("/")
+                code = if (code.isNotEmpty()) code.substring(lastIndexOfSlash + 1) else ""
+                list += code
             }
         }
         return list
