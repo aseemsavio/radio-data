@@ -33,6 +33,7 @@ private class IndianRadioScraper(
                     val productContent = connect(productUrl).getElementsByClass("content")
                     val titleElement = productContent.first()?.getElementById("radio-pagetitle")
                     station.name = titleElement?.text() ?: ""
+
                     val image = productContent
                         .first()
                         ?.getElementsByClass("logotip_new")
@@ -41,9 +42,7 @@ private class IndianRadioScraper(
                         ?.absUrl("src")
                     station.imageUrl = image ?: ""
 
-                    //val audioUrl = productContent.first()?.getElementById("player")
                     val script = productContent.select("script").first().toString()
-                    //println("script: $script")
                     val audioUrl = script?.let { item ->
                         if (item.isNotEmpty() && item.contains("file:\"") && item.contains("\", autoplay")) getBetweenStrings(
                             item,
@@ -63,24 +62,8 @@ private class IndianRadioScraper(
 
                     val radioInfo = productContent.select("div.inforadio_new")
 
-                    val languageList = mutableListOf<String>()
-
-                    radioInfo.forEach { info ->
-                        val languages = info.getElementsByTag("p").first()?.getElementsContainingText("Language:")
-                        languages?.forEach { lang ->
-                            var language = lang.getElementsByTag("a")
-                            language.forEach { l ->
-                                var langCode = l.attr("href")
-                                val lastIndexOfSlash = langCode?.lastIndexOf("/")
-                                if (lastIndexOfSlash != null) {
-                                    langCode =
-                                        if (langCode.isNotEmpty()) langCode.substring(lastIndexOfSlash + 1) else ""
-                                    languageList += langCode
-                                }
-                            }
-                        }
-                    }
-                    station.languages = languageList
+                    station.languages = extractList(radioInfo, "Language:", 0)
+                    station.genre = extractList(radioInfo, "Genre:", 1)
 
                     println("Data: ${station.pp()}")
 
@@ -88,14 +71,32 @@ private class IndianRadioScraper(
                 /*}.awaitAll()*/
             }
 
-            //println("$content \n\n")
-            //content.forEach { println(it) }
-
             // end here
             println(doc.location())
             ++pageNumber
         }
 
+    }
+
+    private fun extractList(
+        radioInfo: Elements,
+        selector: String,
+        index: Int
+    ): List<String> {
+        val list = mutableListOf<String>()
+        radioInfo.forEach { info ->
+            val paragraphs = info.getElementsByTag("p")[index]?.getElementsContainingText(selector)
+            paragraphs?.forEach { para ->
+                val aTags = para.getElementsByTag("a")
+                aTags.forEach { aTag ->
+                    var code = aTag.attr("href")
+                    val lastIndexOfSlash = code.lastIndexOf("/")
+                    code = if (code.isNotEmpty()) code.substring(lastIndexOfSlash + 1) else ""
+                    list += code
+                }
+            }
+        }
+        return list
     }
 
     private suspend fun connect(url: String): Document =
