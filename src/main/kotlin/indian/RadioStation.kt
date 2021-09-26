@@ -26,7 +26,7 @@ data class Rating(
 
 @Serializable
 data class Stations(
-    val stations: Sequence<Station>
+    val stations: List<Station>
 )
 
 data class StationBuilder(

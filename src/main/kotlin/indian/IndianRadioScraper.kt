@@ -2,9 +2,12 @@ package indian
 
 import MAIN_DIRECTORY
 import kotlinx.coroutines.*
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
 import ssl.SSLHelper
+import java.io.File
 import java.lang.Exception
 
 private class IndianRadioScraper(
@@ -12,29 +15,41 @@ private class IndianRadioScraper(
     val baseUrl: String
 ) {
     suspend fun scrape() {
-        var pageNumber = 1
+        val stations = scrape(pageNumber = 1)
+        val format = Json { prettyPrint = true }
+        val json = format.encodeToString(stations)
+
+        val folder = File("Generated-JSON")
+        if (!folder.exists()) folder.mkdir()
+
+        val subFolder = File("Generated-JSON/Indian-Radios")
+        if (!subFolder.exists()) subFolder.mkdir()
+
+        val fileName = "Generated-JSON/Indian-Radios/indian-radios.json"
+        File(fileName).createNewFile()
+        File(fileName).writeText(json)
+        println("Scraped successfully!")
+    }
+
+    private suspend fun IndianRadioScraper.scrape(
+        pageNumber: Int
+    ): List<Station> {
+        val properRadios: MutableList<Station> = mutableListOf()
+        var pageNumber1 = pageNumber
         while (true) {
-            val url = "$baseUrl/?page=$pageNumber"
+            val url = "$baseUrl/?page=$pageNumber1"
             val doc = connect(url)
-            if (doc.location() == "$baseUrl/" && pageNumber != 1) break
-
-            // do stuff here
-
+            if (doc.location() == "$baseUrl/" && pageNumber1 != 1) break
             val content: Elements = doc.getElementsByClass("container")[2].getElementsByClass("rowM")
-
-            val done: List<List<Unit>> = content.map {
-                //CoroutineScope(Dispatchers.Default).async {
+            content.map {
                 val items = it.select("a")
                 items.map { element ->
-                    /*CoroutineScope(Dispatchers.Default).async {*/
                     val station = Station()
-                    station.name = element.select("p").first()?.text().toString()
                     val productUrl = element.absUrl("href")
-                    println("$productUrl page: $pageNumber")
+                    //println("$productUrl page: $pageNumber1")
                     val productContent = connect(productUrl).getElementsByClass("content")
                     val titleElement = productContent.first()?.getElementById("radio-pagetitle")
                     station.name = titleElement?.text() ?: ""
-
                     val image = productContent
                         .first()
                         ?.getElementsByClass("logotip_new")
@@ -42,7 +57,6 @@ private class IndianRadioScraper(
                         ?.first()
                         ?.absUrl("src")
                     station.imageUrl = image ?: ""
-
                     val script = productContent.select("script").first().toString()
                     val audioUrl = script?.let { item ->
                         if (item.isNotEmpty() && item.contains("file:\"") && item.contains("\", autoplay")) getBetweenStrings(
@@ -52,7 +66,6 @@ private class IndianRadioScraper(
                         ) else ""
                     }
                     station.streamingUrl = audioUrl ?: ""
-
                     val ratingElement = productContent.select("div[itemProp = aggregateRating]")
                     station.rating = RatingBuilder(
                         ratingOnFive = ratingElement.select("meta[itemProp = ratingValue]").first()
@@ -62,35 +75,95 @@ private class IndianRadioScraper(
                             ?.attr("content")
                             ?.toInt()
                     )
-
                     val radioInfo = productContent.select("div.inforadio_new")
-
                     station.languages = extractList(radioInfo, "Language:", 0)
                     station.genre = extractList(radioInfo, "Genre:", 1)
                     station.description = radioInfo.first()?.getElementsByTag("p")?.get(2)?.text() ?: ""
-
                     val (firstAirDate, bitRate, frequency, location) = getExtraInformation(productContent)
-                    station.firstAiredYear = firstAirDate
-                    station.bitRate = bitRate
-                    station.frequency = frequency
                     try {
+                        station.firstAiredYear = firstAirDate
+                        station.bitRate = bitRate
+                        station.frequency = frequency
                         station.location = location?.split(",")?.map { word -> word.trim() }!!
                     } catch (e: Exception) {
+                        println("Error occurred: $e")
                     }
 
-                    println("Data: ${station.pp()}")
-                    //}
-                }/*.awaitAll()*/
-                //}
-            }/*.awaitAll()*/
-
-            //println("Done size: ${done.size}")
-            // end here
-            //println("${doc.location()} page: $pageNumber")
-            ++pageNumber
+                    if (
+                        station.name.isNotEmpty() &&
+                        //it.tagLine.isNotEmpty() &&
+                        station.description.isNotEmpty() &&
+                        station.imageUrl.isNotEmpty() &&
+                        station.streamingUrl.isNotEmpty() &&
+                        station.languages.isNotEmpty() &&
+                        station.genre.isNotEmpty()
+                    ) {
+                        properRadios.add(Station(
+                            station.name,
+                            tagLine = station.tagLine,
+                            description = station.description,
+                            imageUrl = station.imageUrl,
+                            streamingUrl = station.streamingUrl,
+                            languages = station.languages,
+                            genre = station.genre,
+                            firstAiredYear = station.firstAiredYear,
+                            bitRate = station.bitRate,
+                            frequency = station.frequency,
+                            location = station.location,
+                            rating = station.rating?.ratingOnFive?.let { it1 ->
+                                station.rating?.numberOfVotes?.let { it2 ->
+                                    Rating(
+                                        ratingOnFive = it1,
+                                        numberOfVotes = it2
+                                    )
+                                }
+                            }
+                        ))
+                        println("Radios added: ${properRadios.size}")
+                    }
+                }
+            }
+            ++pageNumber1
         }
-
+        return properRadios
     }
+
+    private suspend fun IndianRadioScraper.getOnlyProperRadios(unoptimisedList: List<StationBuilder>) =
+        sequence<Station> {
+            unoptimisedList.forEach {
+                if (
+                    it.name.isNotEmpty() &&
+                    //it.tagLine.isNotEmpty() &&
+                    it.description.isNotEmpty() &&
+                    it.imageUrl.isNotEmpty() &&
+                    it.streamingUrl.isNotEmpty() &&
+                    it.languages.isNotEmpty() &&
+                    it.genre.isNotEmpty()
+                ) {
+                    yield(Station(
+                        it.name,
+                        tagLine = it.tagLine,
+                        description = it.description,
+                        imageUrl = it.imageUrl,
+                        streamingUrl = it.streamingUrl,
+                        languages = it.languages,
+                        genre = it.genre,
+                        firstAiredYear = it.firstAiredYear,
+                        bitRate = it.bitRate,
+                        frequency = it.frequency,
+                        location = it.location,
+                        rating = it.rating?.ratingOnFive?.let { it1 ->
+                            it.rating?.numberOfVotes?.let { it2 ->
+                                Rating(
+                                    ratingOnFive = it1,
+                                    numberOfVotes = it2
+                                )
+                            }
+                        }
+                    ))
+                }
+            }
+        }
 
     private fun getExtraInformation(productContent: Elements): Extras {
 
@@ -170,7 +243,10 @@ private class IndianRadioScraper(
     }
 }
 
-suspend fun scrapeIndianRadio() = IndianRadioScraper(MAIN_DIRECTORY, "https://onlineradiofm.in").scrape()
+suspend fun scrapeIndianRadio() = getDataSequence()
+suspend fun getDataSequence() {
+    IndianRadioScraper(MAIN_DIRECTORY, "https://onlineradiofm.in").scrape()
+}
 
 fun Any.pp(indentSize: Int = 2) = " ".repeat(indentSize).let { indent ->
     toString()
